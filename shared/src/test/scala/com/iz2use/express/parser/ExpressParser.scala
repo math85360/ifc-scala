@@ -142,6 +142,40 @@ END_SCHEMA;
 """)
       }
     }
+
+    'expr{
+      val exprParser = ExpressParser.condition
+      'd1{
+        val Parsed.Success(value, successIndex) = exprParser.parse("""IfcRepresentationItem()""")
+        println(value)
+      }
+      'd2{
+        val Parsed.Success(value, successIndex) = exprParser.parse("""IfcGeometricRepresentationItem ()""")
+        println(value)
+      }
+      'd3{
+        val Parsed.Success(value, successIndex) = exprParser.parse("""IfcRepresentationItem() || IfcGeometricRepresentationItem ()""")
+        println(value)
+      }
+      'd4{
+        val Parsed.Success(value, successIndex) = exprParser.parse("""IfcRepresentationItem() || IfcGeometricRepresentationItem () || IfcDirection([0.0,0.0,1.0])""")
+        println(value)
+      }
+      'd5{
+        val Parsed.Success(value, successIndex) = exprParser.parse("""NVL(IfcNormalise(Axis3), IfcRepresentationItem() || IfcGeometricRepresentationItem () || IfcDirection([0.0,0.0,1.0]))""")
+        println(value)
+      }
+      'd6{
+        val Parsed.Success(value, successIndex) = exprParser.parse("""NVL(IfcNormalise(Axis3), IfcRepresentationItem() || IfcGeometricRepresentationItem ())""")
+        println(value)
+      }
+      'd7{
+        val Parsed.Success(value, successIndex) = exprParser.parse("""NVL(IfcNormalise(Axis3), IfcRepresentationItem())""")
+        println(value)
+      }
+
+    }
+
     'condition{
       val ifParser = ExpressParser.ifBlock
 
@@ -195,7 +229,7 @@ U  := [D2, IfcSecondProjAxis(D1, D2, Axis2), D1];
 END_IF;""")
         println(value)
       }
-      
+
       'if4{
         val Parsed.Success(value, successIndex) = ifParser.parse("""IF (Dim = 3) THEN 
 D1 := NVL(IfcNormalise(Axis3), IfcRepresentationItem() || IfcGeometricRepresentationItem () || IfcDirection([0.0,0.0,1.0]));
@@ -204,7 +238,7 @@ U  := [D2, IfcSecondProjAxis(D1, D2, Axis2), D1];
 END_IF;""")
         println(value)
       }
-      
+
       'if5{
         val Parsed.Success(value, successIndex) = ifParser.parse("""IF (Factor < 0.0) THEN
 U[2].DirectionRatios[1] := -U[2].DirectionRatios[1];
@@ -212,7 +246,7 @@ U[2].DirectionRatios[2] := -U[2].DirectionRatios[2];
 END_IF;""")
         println(value)
       }
-      
+
       'if6{
         val Parsed.Success(value, successIndex) = ifParser.parse("""IF EXISTS(Axis2) THEN
 Factor := IfcDotProduct(Axis2, U[2]);
@@ -223,7 +257,7 @@ END_IF;
 END_IF;""")
         println(value)
       }
-      
+
       'if7{
         val Parsed.Success(value, successIndex) = ifParser.parse("""IF EXISTS(Axis2) THEN
 D1 := IfcNormalise(Axis2);

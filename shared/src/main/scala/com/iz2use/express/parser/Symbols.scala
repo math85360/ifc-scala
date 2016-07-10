@@ -1,6 +1,7 @@
 package com.iz2use.express.parser
 
 import fastparse.Utils._
+import com.iz2use.express.tree
 
 trait Symbols {
   import fastparse.all._
@@ -88,4 +89,20 @@ trait Symbols {
   val startName = P(CharPred(a => a.isLetter || a == '_'))
   val continueName = P(startName | digit)
   val name = P(startName ~ (continueName).rep(0))
+
+  val number = P(digit.rep(1, ".", 2).!).map({
+    case c => tree.Literal(tree.Constant(c.toDouble))
+  })
+
+  val text = P("'" ~/ (!"'" ~ AnyChar).rep(0).! ~/ "'").map({
+    case c => tree.Literal(tree.Constant(c))
+  })
+
+  val emptyBlock = tree.Literal(tree.Constant("()"))
+
+  val unit = P(questionMark).map({
+    case c => emptyBlock
+  })
+
+  val primitives = P(number | text | unit)
 }

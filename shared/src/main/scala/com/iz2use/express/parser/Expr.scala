@@ -1,68 +1,122 @@
 package com.iz2use.express.parser
 
 import fastparse.Utils._
+import com.iz2use.express.tree
 
 trait Expr extends Base {
   import fastparse.noApi._
   import White._
 
-  val arrayAccess = P("[" ~/ condition.rep(0, ",") ~/ "]")
+  type Tree = Parser[tree.Tree]
 
-  val nameSelect = P(name.! ~ arrayAccess.rep(0))
+  val arrayAccess = P("[" ~/ condition.rep(0, ",") ~ "]")
 
-  val applySelect: Parser[Any] = P("(" ~/ condition.rep(0, ",") ~/ ")")
+  val applySelect = P("(" ~/ condition.rep(0, ",") ~ ")")
 
-  val arrayDef: Parser[Any] = P("[" ~/ (condition ~ ((":" ~/ condition).rep(1) | ("," ~/ condition).rep(1)).?).? ~/ "]")
+  val arrayDef: Tree = P("[" ~/ (condition ~ ((":" ~/ condition).rep(1) | ("," ~/ condition).rep(1)).?).? ~/ "]").map({
+    case x => tree.Raw(x.toString())
+  })
 
-  val primitives = P(digit.!.rep(1, ".", 2) | "'" ~/ (!"'" ~ AnyChar).rep(0) ~/ "'" | questionMark)
+  val ident: Tree = P(name.!).map({
+    case name => tree.Ident(name)
+  })
 
-  val dotSelect = P("." ~ nameSelect)
+  val accessMethods = P((applySelect | arrayAccess).rep(0))
 
-  val pathSelect = P("\\" ~ nameSelect)
+  val applyPart: Tree = P(ident ~ accessMethods ~ ("." ~/ name.! ~ accessMethods).rep(0)).map({
+    case (fun, argsApplyList, suffixes) =>
+      suffixes.foldLeft(argsApplyList.foldLeft(fun)((acc, cur) => tree.Apply(acc, cur.toList)))({
+        case (acc, (name, args)) => args.foldLeft[tree.Tree](tree.Select(acc, name))((acc2, cur) => tree.Apply(acc2, cur.toList))
+      })
+  })
 
-  val selectSelect = P(nameSelect ~ (pathSelect | dotSelect | applySelect | arrayAccess).rep(0))
+  val apply: Tree = P(applyPart ~ ("\\" ~/ applyPart).rep(0)).map({
+    case (head, tail) => tail.foldLeft(head)((acc, cur) => tree.Child(acc, cur))
+  })
 
-  val smallestPart: Parser[Any] = P(primitives | selectSelect | arrayDef)
+  val smallestPart: Tree = P(primitives | apply | arrayDef)
 
-  val evaluable: Parser[Any] = P(smallestPart)
+  val evaluable: Tree = P(smallestPart)
 
-  val parens: Parser[Any] = P("(" ~/ condition ~/ ")")
+  val parens: Tree = P("(" ~/ condition ~/ ")")
 
-  val factor: Parser[Any] = P(parens | evaluable)
+  val factor: Tree = P(parens | evaluable)
 
-  val repeat = P(REPEAT ~/ name ~/ ":=" ~/ evaluable ~/ TO ~/ evaluable ~/ EOS ~/ functionBlock ~/ END_REPEAT ~/ EOS)
+  val repeat: Tree = P(REPEAT ~/ name.! ~/ ":=" ~/ evaluable ~/ TO ~/ evaluable ~/ EOS ~/ functionBlock ~/ END_REPEAT ~/ EOS).map({
+    case (v, start, end, body) => tree.Repeat(tree.Raw(v), start, end, body)
+  })
 
-  val assign = P(selectSelect ~ ":=" ~ condition ~ EOS)
+  val assign: Tree = P(apply ~ ":=" ~/ condition ~ EOS).map({
+    case (lhs, rhs) => tree.ValDef(lhs, tree.NoModifiers, tree.NoName, tree.EmptyTree, rhs)
+  })
 
-  val productOperation = P(factor ~ (("*" | "/") ~/ factor).rep(0))
+  val productOperation: Tree = P(factor ~ (("*" | "/").! ~/ factor).rep(0)).map({
+    case (root, lst) => lst.foldLeft(root) {
+      case (acc, (op, cur)) => tree.Apply(tree.Select(acc, op), List(cur))
+    }
+  })
 
-  val term = P("-" ~/ productOperation | productOperation)
+  val term: Tree = P("-".!.? ~ productOperation).map({
+    case (arg, op) => arg.foldLeft(op) { (acc, cur) => tree.Apply(tree.Select(op, "unary_-"), List.empty) }
+  })
 
-  val sumOperation = P(term ~ (("+" | "-") ~/ term).rep(0))
+  val sumOperation: Tree = P(term ~ (("+" | "-").! ~/ term).rep(0)).map({
+    case (root, lst) => lst.foldLeft(root) {
+      case (acc, (op, cur)) => tree.Apply(tree.Select(acc, op), List(cur))
+    }
+  })
 
-  val comparatorOperation = P(sumOperation ~ ((":" ~ ("=:" | "<>:") | "<>" | "<" ~ ("=" | "*").? | "=" | ">" ~ "=".?) ~/ sumOperation).rep(0))
+  val comparatorOperation: Tree = P(sumOperation ~ ((":" ~ ("=:" | "<>:") | "<>" | "<" ~ ("=" | "*").? | "=" | ">" ~ "=".?).! ~/ sumOperation).rep(0)).map({
+    case (root, lst) => lst.foldLeft(root) {
+      case (acc, (op, cur)) => tree.Apply(tree.Select(acc, op), List(cur))
+    }
+  })
 
-  val unaryOperation = P((NOT ~/ comparatorOperation | comparatorOperation))
+  val unaryOperation: Tree = P(NOT.!.? ~ comparatorOperation).map({
+    case (arg, op) => arg.foldLeft(op) { (acc, cur) => tree.Apply(tree.Select(op, "unary_!"), List.empty) }
+  })
 
-  val binaryLogicalOperation = P(unaryOperation ~ ((OR | AND | IN | "|" ~ "|".?) ~/ unaryOperation).rep(0))
+  val binaryLogicalOperation: Tree = P(unaryOperation ~ ((OR | AND | IN | "||" | "|").! ~/ unaryOperation).rep(0)).map({
+    case (root, lst) => lst.foldLeft(root) {
+      case (acc, (op, cur)) => tree.Apply(tree.Select(acc, op), List(cur))
+    }
+  })
 
   //val isolatedOperation = P( unaryLogicalOperation))
 
-  val condition = P(binaryLogicalOperation)
+  val condition: Tree = P(binaryLogicalOperation)
 
-  val ifBlock = P(IF ~/ condition ~/ THEN ~/ functionBlock ~/ (ELSE ~/ functionBlock).? ~ END_IF ~ EOS)
+  val ifBlock: Tree = P(IF ~/ condition ~/ THEN ~/ functionBlock ~/ (ELSE ~/ functionBlock).? ~ END_IF ~ EOS).map({
+    case (cond, thenp, elsep) => tree.If(cond, thenp, elsep.getOrElse(emptyBlock))
+    //case _ => tree.If(tree.EmptyTree, tree.EmptyTree, tree.EmptyTree)
+  })
 
-  val block = P(BEGIN ~/ functionBlock ~/ END ~ EOS)
+  val block: Tree = P(BEGIN ~/ functionBlock ~/ END ~ EOS)
 
-  val returnStmt = P(RETURN ~/ condition ~ EOS)
+  val returnStmt = P(RETURN ~/ condition ~ EOS).map({
+    //case expr => tree.Return(expr)
+    case _ => tree.Return(tree.EmptyTree)
+  })
 
-  val escapeStmt = P(ESCAPE ~/ EOS)
+  val escapeStmt: Tree = P(ESCAPE ~/ EOS).map({
+    case _ => tree.Escape
+  })
 
-  val caseLabel = P(!OTHERWISE ~ (name.!.rep(1, ".") | primitives) ~/ ":")
+  val caseLabel = P(!OTHERWISE ~ (apply | primitives) ~/ ":" ~ lineBlock).map({
+    case (pat, body) => tree.CaseDef(pat, body)
+  })
 
-  val caseBlock = P(CASE ~/ name.! ~/ OF ~/ (caseLabel ~ lineBlock).rep(1) ~/ (OTHERWISE ~/ ":" ~/ lineBlock).? ~/ END_CASE ~/ EOS)
+  val caseBlock: Tree = P(CASE ~/ apply ~/ OF ~/ caseLabel.rep(1) ~/ (OTHERWISE ~/ ":" ~/ lineBlock).? ~/ END_CASE ~/ EOS).map({
+    case (selector, cases, otherwise) => tree.Match(selector, otherwise.map(tree.CaseDef(tree.EmptyTree, _)).foldLeft(cases.toList)((lst, o) => lst :+ o))
+  })
 
-  val lineBlock: Parser[Any] = P((block | caseBlock | escapeStmt | ifBlock | repeat | returnStmt | assign))
+  val lineBlock: Tree = P((block | caseBlock | escapeStmt | ifBlock | repeat | returnStmt | assign))
 
-  val functionBlock: Parser[Any] = P(lineBlock.rep(0))
+  val functionBlock: Tree = P(lineBlock.rep(0)).map({
+    case stats => tree.Block(stats.collect({
+      case expr: tree.Tree => expr
+      case raw => tree.Raw(raw.toString())
+    }).toList)
+  })
+
 }
