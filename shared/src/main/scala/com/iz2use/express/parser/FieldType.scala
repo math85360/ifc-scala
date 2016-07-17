@@ -1,30 +1,51 @@
 package com.iz2use.express.parser
 
+import com.iz2use.express.tree
 import fastparse.Utils._
 
-trait FieldType extends Base {
+trait FieldType extends Expr {
   import fastparse.noApi._
   import White._
 
-  val dimension = P("[" ~/ (digit | questionMark | name).rep(2, ":") ~/ "]")
+  //val dimension: Parser[tree.Tree] = P(digit | questionMark | name)
 
-  val list: Parser[Any] = P(LIST ~/ dimension.!.? ~/ OF ~/ UNIQUE.? ~/ fieldType)
+  val dimensions = P("[" ~/ condition.rep(2, ":") ~/ "]")
 
-  val array: Parser[Any] = P(ARRAY ~/ dimension.!.? ~/ OF ~/ UNIQUE.? ~/ fieldType)
+  val listOrArrayOrSet: Parser[tree.FieldType] = P(((LIST.!.map(_ => tree.ListType.tupled)) | (ARRAY.!.map(_ => tree.ArrayType.tupled)) | (SET.!.map(_ => tree.SetType.tupled))) ~/ dimensions.? ~/ OF ~/ UNIQUE.!.? ~/ fieldType).map({
+    case (colTpe, dims, unique, tpe) => colTpe.apply(tpe, dims, unique.isDefined)
+  })
 
-  val set: Parser[Any] = P(SET ~/ dimension.!.? ~/ OF ~/ UNIQUE.? ~/ fieldType)
+  val enumeration: Parser[tree.EnumerationType] = P(ENUMERATION ~/ OF ~/ nameList).map({
+    case list => tree.EnumerationType(list)
+  })
 
-  val enumeration: Parser[Any] = P(ENUMERATION ~/ OF ~/ nameList)
+  val select: Parser[tree.SelectType] = P(SELECT ~/ nameList).map({
+    case list => tree.SelectType(list)
+  })
 
-  val select: Parser[Any] = P(SELECT ~/ nameList)
+  val stringOrBinary: Parser[tree.PrimitiveType] = P((STRING.!.map(_ => tree.StringType.tupled) | BINARY.!.map(_ => tree.BinaryType.tupled)) ~/ (group(digit.rep(1).!) ~/ FIXED.!.?).?).map({
+    case (tpe, None) => tpe.apply(None, false)
+    case (tpe, Some((len, fixed))) => tpe.apply(Some(len.toInt), fixed.isDefined)
+  })
 
-  val string: Parser[Any] = P(STRING ~/ (group(digit.rep(1).!) ~/ FIXED.?).?)
+  val generic: Parser[tree.GenericType] = P(GENERIC ~/ ":" ~/ userDefinedType).map({
+    case defined => tree.GenericType(defined)
+  })
 
-  val binary: Parser[Any] = P(BINARY ~/ (group(digit.rep(1).!) ~/ FIXED.?).?)
+  val userDefinedType: Parser[tree.UserDefinedType] = P(name.!).map({
+    case name =>
+      if (name equals name.toUpperCase()) println(name)
+      tree.UserDefinedType(name)
+  })
 
-  val generic: Parser[Any] = P(GENERIC ~/ ":" ~/ name.!)
+  val primitiveTypes: Parser[tree.PrimitiveType] = P(
+    stringOrBinary |
+      LONG.!.map(_ => tree.LongType) |
+      REAL.!.map(_ => tree.RealType) |
+      INTEGER.!.map(_ => tree.IntegerType) |
+      LOGICAL.!.map(_ => tree.LogicalType) |
+      BOOLEAN.!.map(_ => tree.BooleanType) |
+      NUMBER.!.map(_ => tree.NumberType))
 
-  //val list = P(LIST ~/ "[" ~/ "]" ~/ OF ~/ name)
-
-  val fieldType = P(list | array | set | enumeration | select | string | binary | generic | name.!)
+  val fieldType: Parser[tree.FieldType] = P(listOrArrayOrSet | enumeration | select | generic | primitiveTypes | userDefinedType)
 }

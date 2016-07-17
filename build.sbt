@@ -11,20 +11,19 @@ organization in ThisBuild := "iZ2Use"
 
 lazy val ifcscala = crossProject.in(file("."))
 	.settings(
-		name := "ifc-shared",
 		libraryDependencies ++= Seq(
 			"com.lihaoyi" %%% "utest" % "0.4.3" % "test",
 			"com.lihaoyi" %%% "fastparse" % "0.3.7"
 		),
 		testFrameworks += new TestFramework("utest.runner.Framework")
 	)
-	.jsSettings(name := "ifc-js",
+	.jsSettings(
 		libraryDependencies ++= Seq(
 		),
 		jsDependencies ++= Seq(
 		)
 	)
-	.jvmSettings(name := "ifc-jvm",
+	.jvmSettings(
 		libraryDependencies ++= Seq(
 		)
 	)
@@ -33,6 +32,6 @@ lazy val ifcscalaJS = ifcscala.js
 
 lazy val ifcscalaJVM = ifcscala.jvm
 	
-lazy val modules = project.aggregate(
-//	ifcscalaJS,
+lazy val modules = project.in(file(".")).aggregate(
+	ifcscalaJS,
 	ifcscalaJVM)

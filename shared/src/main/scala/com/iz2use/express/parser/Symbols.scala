@@ -12,7 +12,7 @@ trait Symbols {
 
   val commentEnd = P("*)")
 
-  val comment = P(commentStart ~/ (!commentEnd ~ AnyChar).rep(0).! ~/ commentEnd)
+  val comment = P(commentStart ~/ (!commentEnd ~ AnyChar).rep(0).! ~/ commentEnd).map(tree.Comment)
 
   val header = P(comment.?)
 
@@ -23,6 +23,7 @@ trait Symbols {
   val BAG = P(IgnoreCase("BAG"))
   val BEGIN = P(IgnoreCase("BEGIN"))
   val BINARY = P(IgnoreCase("BINARY"))
+  val BOOLEAN = P(IgnoreCase("BOOLEAN"))
 
   val CASE = P(IgnoreCase("CASE"))
 
@@ -42,6 +43,7 @@ trait Symbols {
   val ENTITY = P(IgnoreCase("ENTITY"))
   val ENUMERATION = P(IgnoreCase("ENUMERATION"))
   val ESCAPE = P(IgnoreCase("ESCAPE"))
+  val EXISTS = P(IgnoreCase("EXISTS"))
 
   val FIXED = P(IgnoreCase("FIXED"))
   val FOR = P(IgnoreCase("FOR"))
@@ -51,12 +53,18 @@ trait Symbols {
 
   val IF = P(IgnoreCase("IF"))
   val IN = P(IgnoreCase("IN"))
+  val INTEGER = P(IgnoreCase("INTEGER"))
   val INVERSE = P(IgnoreCase("INVERSE"))
 
   val LIST = P(IgnoreCase("LIST"))
   val LOCAL = P(IgnoreCase("LOCAL"))
+  val LOGICAL = P(IgnoreCase("LOGICAL"))
+  val LONG = P(IgnoreCase("LONG"))
+
+  val MOD = P(IgnoreCase("MOD"))
 
   val NOT = P(IgnoreCase("NOT"))
+  val NUMBER = P(IgnoreCase("NUMBER"))
 
   val OF = P(IgnoreCase("OF"))
   val ONEOF = P(IgnoreCase("ONEOF"))
@@ -64,6 +72,9 @@ trait Symbols {
   val OR = P(IgnoreCase("OR"))
   val OTHERWISE = P(IgnoreCase("OTHERWISE"))
 
+  val QUERY = P(IgnoreCase("QUERY"))
+
+  val REAL = P(IgnoreCase("REAL"))
   val REPEAT = P(IgnoreCase("REPEAT"))
   val RETURN = P(IgnoreCase("RETURN"))
   val RULE = P(IgnoreCase("RULE"))
@@ -72,6 +83,7 @@ trait Symbols {
   val SELECT = P(IgnoreCase("SELECT"))
   val SELF = P(IgnoreCase("SELF"))
   val SET = P(IgnoreCase("SET"))
+  val SIZEOF = P(IgnoreCase("SIZEOF"))
   val STRING = P(IgnoreCase("STRING"))
   val SUBTYPE = P(IgnoreCase("SUBTYPE"))
   val SUPERTYPE = P(IgnoreCase("SUPERTYPE"))
@@ -79,10 +91,13 @@ trait Symbols {
   val THEN = P(IgnoreCase("THEN"))
   val TO = P(IgnoreCase("TO"))
   val TYPE = P(IgnoreCase("TYPE"))
+  val TYPEOF = P(IgnoreCase("TYPEOF"))
 
   val UNIQUE = P(IgnoreCase("UNIQUE"))
 
   val WHERE = P(IgnoreCase("WHERE"))
+
+  val XOR = P(IgnoreCase("XOR"))
 
   val digit = P(CharPred(_.isDigit).rep(1))
   val questionMark = P("?")
@@ -90,8 +105,9 @@ trait Symbols {
   val continueName = P(startName | digit)
   val name = P(startName ~ (continueName).rep(0))
 
-  val number = P(digit.rep(1, ".", 2).!).map({
-    case c => tree.Literal(tree.Constant(c.toDouble))
+  val number = P(((digit.rep(1) ~ ("." ~/ digit.rep(0)).?) | ("." ~ digit.rep(1))).!).map({
+    case c if c.contains('.') => tree.Literal(tree.Constant(c.toDouble))
+    case c => tree.Literal(tree.Constant(c.toLong))
   })
 
   val text = P("'" ~/ (!"'" ~ AnyChar).rep(0).! ~/ "'").map({
