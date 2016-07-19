@@ -2,7 +2,6 @@ package com.iz2use.express.parser
 
 import fastparse.all._
 import utest._
-import scala.io.Source
 import scala.util._
 
 object EntityTests extends TestSuite {

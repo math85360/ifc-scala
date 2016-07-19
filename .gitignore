@@ -12,3 +12,4 @@
 **/.cache-test
 IFC4.exp
 activator*
+**/.externalToolBuilders/
