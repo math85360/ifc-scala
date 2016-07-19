@@ -72,7 +72,11 @@ trait Expr extends Base {
     EXISTS.!.map(_ => tree.EXISTS) |
     NVL.!.map(_ => tree.NVL) |
     HIINDEX.!.map(_ => tree.HIINDEX) |
-    ABS.!.map(_ => tree.ABS)) ~ NBRO ~/ condition.rep(0, COMA) ~ NBRC).map({
+    ABS.!.map(_ => tree.ABS) |
+    SQRT.!.map(_ => tree.SQRT) |
+    BLENGTH.!.map(_ => tree.BLENGTH) |
+    AREA.!.map(_ => tree.AREA) |
+    USEDIN.!.map(_ => tree.USEDIN)) ~ NBRO ~/ condition.rep(0, COMA) ~ NBRC).map({
     case (func, argList) => tree.DefaultFunctionCall(func, argList)
   })
 

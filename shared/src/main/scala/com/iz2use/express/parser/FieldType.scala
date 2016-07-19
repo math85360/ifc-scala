@@ -19,7 +19,7 @@ trait FieldType extends Expr {
     case list => tree.EnumerationType(list)
   })
 
-  val select: Parser[tree.SelectType] = P(SELECT ~/ nameList).map({
+  val select: Parser[tree.SelectType] = P(SELECT ~/ group(fieldType.rep(1, COMA))).map({
     case list => tree.SelectType(list)
   })
 

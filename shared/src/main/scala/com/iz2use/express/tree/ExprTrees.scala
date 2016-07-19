@@ -98,6 +98,10 @@ case object SIZEOF extends DefaultFunction
 case object EXISTS extends DefaultFunction
 case object NVL extends DefaultFunction
 case object ABS extends DefaultFunction
+case object SQRT extends DefaultFunction
+case object BLENGTH extends DefaultFunction
+case object AREA extends DefaultFunction
+case object USEDIN extends DefaultFunction
 case object HIINDEX extends DefaultFunction
 
 case class Query(name: String, query: Tree, cond: Tree) extends Tree

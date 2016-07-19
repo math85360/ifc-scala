@@ -47,6 +47,7 @@ trait Symbols {
   
   val startName = P(CharPred(a => a.isLetter || a == '_'))
   val continueName = P(startName | digit)
+  val nextNotName = P(!(continueName | DOT | SLASH))
   val name = P(startName ~ (continueName).rep(0))
   
   val number = P(((digit.rep(1) ~ (DOT ~/ digit.rep(0)).?) ~ (("e" | "E") ~ (MINUS | PLUS) ~ digit.rep(1)).? | (DOT ~ digit.rep(1))).!).map({

@@ -68,17 +68,17 @@ object ExpressParser extends Symbols with FieldType with Base with Expr {
     case (name, argList, tpe, locals, body) => tree.Function(name, argList, tpe, locals.getOrElse(Seq.empty), body)
   })
 
-  val ruleDef = P(RULE ~/ name.! ~/ FOR ~/ nameList ~/ EOS ~/ localDefs.? ~ functionBlock ~ wheres.? ~/ (!END_RULE ~ AnyChar).rep(0) ~/ END_RULE ~/ EOS)
+  val ruleDef = P(RULE ~/ name.! ~/ FOR ~/ group(fieldType.rep(1, COMA)) ~/ EOS ~/ localDefs.? ~ functionBlock.? ~ wheres.? ~ /*(!END_RULE ~ AnyChar).rep(0)
+  ~ */ END_RULE ~/ EOS).map({
+    case (name, types, locals, body, wheres) => tree.Rule(name, types, locals.getOrElse(Seq.empty), body.getOrElse(tree.EmptyTree), wheres.getOrElse(Seq.empty))
+  })
 
   val element = P(entityDef | typeDef | functionDef | ruleDef)
 
   val schemaBody = P(element.rep(0))
 
   val schemaDef = P(SCHEMA ~/ name.! ~/ EOS ~/ schemaBody ~/ END_SCHEMA ~ EOS).map({
-    case (name, body) => tree.Schema(name,
-      entities = body.collect({ case e: tree.Entity => e }),
-      types = body.collect({ case e: tree.Type => e }),
-      functions = body.collect({ case e: tree.Function => e }))
+    case (name, body) => tree.Schema(name, body)
   })
 
   val file = P(header ~ schemaDef).map({

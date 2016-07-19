@@ -22,11 +22,13 @@ trait Base extends Symbols {
   val ABS = P(IgnoreCase("ABS"))
   val ABSTRACT = P(IgnoreCase("ABSTRACT"))
   val AND = P(IgnoreCase("AND"))
+  val AREA = P(IgnoreCase("AREA"))
   val ARRAY = P(IgnoreCase("ARRAY"))
 
   val BAG = P(IgnoreCase("BAG"))
   val BEGIN = P(IgnoreCase("BEGIN"))
   val BINARY = P(IgnoreCase("BINARY"))
+  val BLENGTH = P(IgnoreCase("BLENGTH"))
   val BOOLEAN = P(IgnoreCase("BOOLEAN"))
 
   val CASE = P(IgnoreCase("CASE"))
@@ -49,6 +51,7 @@ trait Base extends Symbols {
   val ESCAPE = P(IgnoreCase("ESCAPE"))
   val EXISTS = P(IgnoreCase("EXISTS"))
 
+  val FALSE = P(IgnoreCase("FALSE"))
   val FIXED = P(IgnoreCase("FIXED"))
   val FOR = P(IgnoreCase("FOR"))
   val FUNCTION = P(IgnoreCase("FUNCTION"))
@@ -91,15 +94,18 @@ trait Base extends Symbols {
   val SELF = P(IgnoreCase("SELF"))
   val SET = P(IgnoreCase("SET"))
   val SIZEOF = P(IgnoreCase("SIZEOF"))
+  val SQRT = P(IgnoreCase("SQRT"))
   val STRING = P(IgnoreCase("STRING"))
   val SUBTYPE = P(IgnoreCase("SUBTYPE"))
   val SUPERTYPE = P(IgnoreCase("SUPERTYPE"))
 
   val THEN = P(IgnoreCase("THEN"))
   val TO = P(IgnoreCase("TO"))
+  val TRUE = P(IgnoreCase("TRUE"))
   val TYPE = P(IgnoreCase("TYPE"))
   val TYPEOF = P(IgnoreCase("TYPEOF"))
 
+  val USEDIN = P(IgnoreCase("USEDIN"))
   val UNIQUE = P(IgnoreCase("UNIQUE"))
 
   val WHERE = P(IgnoreCase("WHERE"))
@@ -116,5 +122,9 @@ trait Base extends Symbols {
     case c => emptyBlock
   })
 
-  val primitives = P(number | text | unit)
+  val _true = P(TRUE ~ nextNotName).map(_ => tree.Literal(tree.Constant(true)))
+  val _false = P(FALSE ~ nextNotName).map(_ => tree.Literal(tree.Constant(false)))
+  val boolean = P(_true | _false)
+
+  val primitives = P(boolean | number | text | unit)
 }
