@@ -35,3 +35,5 @@ lazy val ifcscalaJVM = ifcscala.jvm
 lazy val modules = project.in(file(".")).aggregate(
 	ifcscalaJS,
 	ifcscalaJVM)
+
+scalacOptions in ThisBuild += "-feature"

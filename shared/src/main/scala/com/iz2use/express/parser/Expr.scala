@@ -95,6 +95,7 @@ trait Expr extends Base {
     cnd match {
       case tree.CompareOperation(tree.CompareOperation(lv, lo, v), ho, hv) =>
         tree.Between(lv, lo == tree.LessThanOrEquals, v, ho == tree.LessThanOrEquals, hv)
+      case e => e
       //tree.Between(lv, il, v, ih, hv)
     }
   })
@@ -175,7 +176,6 @@ trait Expr extends Base {
 
   val returnStmt = P(RETURN ~/ condition ~ EOS).map({
     case expr => tree.Return(expr)
-    case _ => tree.Return(tree.EmptyTree)
   })
 
   val escapeStmt: Tree = P(ESCAPE ~/ EOS).map({

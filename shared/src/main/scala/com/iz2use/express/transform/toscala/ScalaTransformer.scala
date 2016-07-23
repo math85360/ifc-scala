@@ -5,11 +5,11 @@ import java.io.FileWriter
 import java.io.PrintWriter
 import java.io.File
 import scala.annotation.tailrec
-import com.iz2use.express.tree.OptionalField
+import java.io.Closeable
 
 object ScalaTransformer {
   val NL = "\r\n"
-  def using[A <: { def close(): Unit }, B](resource: A)(f: A => B): B =
+  def using[A <: Closeable, B](resource: A)(f: A => B): B =
     try f(resource) finally resource.close()
 
   def writeToFile(path: String, data: String): Unit =
@@ -24,7 +24,7 @@ object ScalaTransformer {
     (
       new File(path)).mkdirs()
 
-    schema.definedTypes.foreach({ tpe =>
+    schema.definedTypes.par.foreach({ tpe =>
       implicit val ctx = context + tpe
       val content = (tpe match {
         case e: tree.Entity => transformEntity(e)
@@ -90,8 +90,14 @@ $wheres
           }).map(_.name).mkString(s"$inh(", ", ", ")")
           //}
         }) ++ context.schema.definedTypes.collect({
-          case tree.Type(name, tree.SelectType(subtypes), _) if subtypes.contains(entity.name) => name
+          case tree.Type(name, tree.SelectType(subtypes), _) if subtypes.contains(tree.UserDefinedType(entity.name)) => name
         })
+
+        /*def findSelectFrom(entity: tree.Entity) = {
+    schema.definedTypes.collect({
+      case tree.Type(name, tree.SelectType(lst), _) if lst.contains(entity.name) => name
+    })
+  }*/
         val inheritsFrom = if (extended.isEmpty) "" else " extends " + NL + extended.mkString(" with " + NL) + NL
         val fields = inheritedEntities.flatMap(_.fields).map(transformField(false)).mkString("(" + NL, "," + NL, NL + ")")
         val prefix = (if (entity.isAbstract) "abstract " else "")
@@ -125,32 +131,98 @@ $elements
 
         case tree.SelectType(lst) =>
           val alternatives = lst.collect({ case tree.UserDefinedType(tpe) => s"""implicit object ${tpe}Witness extends ${entity.name}[$tpe]""" }).mkString(NL)
+          val toImplements = lst.collect({
+            case tree.UserDefinedType(tpe) => tpe
+          }).flatMap(_name => context.schema.definedTypes.collectFirst({
+            case tree.Entity(entName, _, _, fields, derives, _, _, _) if entName == _name =>
+              fields.collect({ case tree.Field(name, tpe) => name -> tpe }) ++
+                derives.collect({
+                  case tree.Derive(tree.Ident(name), tpe, _) => name -> tpe
+                  case tree.Derive(name, tpe, _) => transformTree(name) + "/**/" -> tpe
+                })
+            /*(fields ++ derives).map(tpe => (tpe.name,tpe))*/
+          })).reduceOption({ (a, b) => /*a.intersect(b)*/ (a ++ b).distinct }).map(_.map({
+            case (name, tpe) =>
+              val default = defaultValueForType(tpe)
+              s"def $name : ${transformType(tpe)} = $default"
+          })).getOrElse(Seq.empty).mkString(NL)
+          /*.reduce({
+            case (a, b) => a ++ b
+          })*/
+          //.flatten.groupBy(_.name).flatMap({ case (name, defined) => })
+
           s"""
-class ${entity.name}[T]
+trait ${entity.name} {
+$toImplements
+}
+/*class ${entity.name}[T] {
+}
 
 object ${entity.name} {
 $alternatives
-}
+}*/
 """
         /*s"""
 trait ${entity.name} {
 }"""*/
         case _ =>
+          val addedBody = entity.tpe match {
+            case x: tree.NumericBasedType =>
+              val default = defaultValueForType(x)
+              s"""
+object ${entity.name} {
+
+trait ${entity.name}Integral extends Integral[${transformType(x)}] {
+}
+
+implicit object ${entity.name}Integral extends ${entity.name}Integral
+
+implicit def valueToExpress(underlying: ${transformType(x)}): ${entity.name} = new ${entity.name}(underlying)
+
+implicit def valueToOptionExpress(underlying: ${transformType(x)}): Option[${entity.name}] = Some(valueToExpress(underlying))
+
+implicit def expressToValue(underlying: ${entity.name}): ${transformType(x)} = underlying.SELF
+
+implicit def expressOptToValue(underlying: Option[${entity.name}]): ${transformType(x)} = underlying.map(_.SELF).getOrElse(${defaultValueForType(x)})
+}
+"""
+            case _ => ""
+          }
+          val extended = entity.tpe match {
+            case x: tree.NumericBasedType => s"(val SELF: ${transformType(entity.tpe)}) extends AnyVal"
+            case _ => s"(val SELF: ${transformType(entity.tpe)})"
+          }
           s"""
-class ${entity.name}(SELF: ${transformType(entity.tpe)}) {
+class ${entity.name}$extended {
 $wheres
 }
+
+$addedBody
 """
       })
   }
 
-  val defaultValueForType: PartialFunction[tree.FieldType, String] = {
-    case tree.OptionalField(tpe) => tpe match {
-      case a if defaultValueForType.isDefinedAt(a) => defaultValueForType(a)
+  /*val defaultValueForType: PartialFunction[(tree.FieldType, Context), String] = {
+    case (tree.OptionalField(tpe), ctx) => tpe match {
+      case a if defaultValueForType.isDefinedAt((a, ctx)) => defaultValueForType((a, ctx))
       case _ => "null"
     }
-    case tree.RealType => "0.0"
-    case tree.NumberType | tree.LongType | tree.IntegerType => "0"
+    case (tree.RealType, _) => "0.0"
+    case (tree.NumberType, _) | (tree.LongType, _) | (tree.IntegerType, _) => "0"
+    case (tree.UserDefinedType(x), ctx) => ctx.schema
+  }*/
+
+  def defaultValueForType(_tpe: tree.FieldType, found: String => String = a => a, notFound: => String = "null")(implicit context: Context): String = _tpe match {
+    //case tree.OptionalField(tpe) => defaultValueForType(tpe, found, notFound)
+    case tree.OptionalField(tpe) => found("None")
+    case tree.RealType => found("0.0")
+    case tree.NumberType | tree.LongType | tree.IntegerType => found("0")
+    case tree.UserDefinedType(_name) =>
+      context.schema.definedTypes.collectFirst({
+        case tree.Type(name, tpe, _) if name == _name => tpe
+      }).map(defaultValueForType(_, found, notFound)).getOrElse(notFound)
+    //case (tree.UserDefinedType(x), ctx) => ctx.schema
+    case _ => notFound
   }
 
   @tailrec
@@ -161,7 +233,7 @@ $wheres
       case tree.ListType(tpe, _, _) => traverseType(tpe)
       case tree.SetType(tpe, _, _) => traverseType(tpe)
       case tree.ArrayType(tpe, _, _) => traverseType(tpe)
-      case tree.UserDefinedType(name) =>
+      /*case tree.UserDefinedType(name) =>
         val r = context.schema.definedTypes.collectFirst({
           case tree.Type(_name, tree.SelectType(lst), _) if _name.equalsIgnoreCase(name) =>
             tree.GenericType(tree.UserDefinedType("A : " + name))
@@ -169,7 +241,7 @@ $wheres
         if (r.isEmpty)
           None
         else
-          traverseType(r.get)
+          traverseType(r.get)*/
       case _ => None
     }
   }
@@ -181,7 +253,7 @@ $wheres
     }, context)).distinct
     val generics = (if (genericList.isEmpty) "" else genericList.mkString("[", ", ", "]"))
     val locals = entity.locals.map({ local =>
-      val expr = local.expr.map(transformTree).fold(" = " + defaultValueForType.lift(local.tpe).getOrElse("null"))(" = " + _)
+      val expr = local.expr.map(transformTree).fold(" = " + defaultValueForType(local.tpe))(" = " + _)
       s"""var ${local.name} : ${transformType(local.tpe)}$expr"""
     }).mkString(NL)
     s"""package express.${context.schema.name.toLowerCase}
@@ -206,7 +278,7 @@ ${transformTree(entity.body)}
     "]"))*/
     val wheres = entity.wheres.map(transformWhere).mkString(NL)
     val locals = entity.locals.map({ local =>
-      val expr = local.expr.map(transformTree).fold(" = " + defaultValueForType.lift(local.tpe).getOrElse("null"))(" = " + _)
+      val expr = local.expr.map(transformTree).fold(" = " + defaultValueForType(local.tpe))(" = " + _)
       s"""var ${local.name} : ${transformType(local.tpe)}$expr"""
     }).mkString(NL)
     s"""package express.${context.schema.name.toLowerCase}
@@ -226,7 +298,7 @@ $wheres
   }
 
   def transformField(inBody: Boolean)(field: tree.Field)(implicit context: Context) = {
-    val suffix = (if (inBody) { " = _" } else { defaultValueForType.lift(field.tpe).map(" = " + _).getOrElse("") })
+    val suffix = (if (inBody) { " = _" } else { defaultValueForType(field.tpe, " = " + _, "") })
     s"""var ${field.name} : ${transformType(field.tpe)}$suffix"""
   }
 
@@ -287,7 +359,7 @@ $wheres
         case str: String => "\"" + str + "\""
         case e => e.toString()
       }
-      case tree.DefaultFunctionCall(tree.EXISTS, args) => s"${transformArgs(args)} != null" // s"${transformArgs(args)}.isDefined"
+      case tree.DefaultFunctionCall(tree.EXISTS, args) => s"(${transformArgs(args)} != null)" // s"${transformArgs(args)}.isDefined"
       case tree.Super(tree.Self, tree.Ident(name)) => s"this" // case tree.Super(tree.Self, tree.Ident(name)) => s"super[$name]"
       case tree.Super(root, tree.Ident(name)) => s"${transformTree(root)}" //case tree.Super(root, tree.Ident(name)) => s"${transformTree(root)}.super[$name]"
       case tree.BooleanOperation(tree.Literal(tree.Constant(lhs: String)), tree.In, tree.DefaultFunctionCall(tree.TYPEOF, rhs)) =>
@@ -302,7 +374,7 @@ $wheres
       case tree.DefaultFunctionCall(tree.TYPEOF, args) => s"${transformArgs(args)}.getClass"
       case tree.DefaultFunctionCall(tree.ABS, args) => s"${transformTree(args.head)}.abs"
       case tree.DefaultFunctionCall(tree.SQRT, args) => s"Math.sqrt(${transformTree(args.head)})"
-      case tree.DefaultFunctionCall(tree.NVL, args) => args.map(arg => s"Option(${transformTree(arg)})").reduce((a, b) => s"$a.orElse($b).get")
+      //case tree.DefaultFunctionCall(tree.NVL, args) => args.map(arg => s"Option(${transformTree(arg)})").reduce((a, b) => s"$a.orElse($b).get")
       case tree.DefaultFunctionCall(tree.HIINDEX, args) => s"(${transformTree(args.head)}.size - 1)"
       case tree.Between(lv, il, v, ih, hv) =>
         val c = transformTree(v)
@@ -320,12 +392,13 @@ ${transformTree(elsep)}
       case tree.ValDef(lhs, _, _, _, rhs) => s"""${transformTree(lhs)} = ${transformTree(rhs)}"""
       case tree.Return(expr) => s"""return ${transformTree(expr)}"""
       case tree.EmptyTree => "null"
+      case tree.DefaultFunctionCall(op, args) => "null /* $op : " + args.map(transformTree).mkString(" || ") + "*/"
       case expr => s"/*${expr.toString()}*/"
     }
   }
 
   def transformType(_tpe: tree.FieldType)(implicit context: Context): String = _tpe match {
-    case tree.OptionalField(tpe) => transformType(tpe) // s"Option[${transformType(tpe)}]"
+    case tree.OptionalField(tpe) => s"Option[${transformType(tpe)}]" // transformType(tpe)
     case tree.ArrayType(tpe, dims, unique) => s"collection.mutable.ArrayBuffer[${transformType(tpe)}]"
     case tree.SetType(tpe, dims, unique) => s"collection.mutable.Set[${transformType(tpe)}]"
     case tree.ListType(tpe, dims, unique) => s"collection.mutable.ListBuffer[${transformType(tpe)}]"
@@ -339,10 +412,11 @@ ${transformTree(elsep)}
     case tree.RealType => s"Double"
     case tree.NumberType => s"Double"
     case tree.UserDefinedType(name) =>
-      val r = context.schema.definedTypes.collectFirst({
+      /*val r = context.schema.definedTypes.collectFirst({
         case tree.Type(_name, tree.SelectType(lst), _) if _name.equalsIgnoreCase(name) => "A"
       })
-      r.getOrElse(name)
+      r.getOrElse(name)*/
+      name
     case tree.GenericType(tpe) => transformType(tpe)
   }
 }
@@ -422,4 +496,5 @@ case class Context(
   def pushNamesFrom(entities: Seq[tree.Entity]) = {
     names = names ++ entities.flatMap(transformEntityToNameMap)
   }
+
 }
