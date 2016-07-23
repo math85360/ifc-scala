@@ -3,7 +3,7 @@ package com.iz2use.express.parser
 import com.iz2use.express.tree
 import fastparse.Utils._
 
-trait FieldType extends Expr {
+trait DataType extends Expr {
   import fastparse.noApi._
   import White._
 
@@ -11,7 +11,7 @@ trait FieldType extends Expr {
 
   val dimensions = P("[" ~/ condition.rep(2, ":") ~/ "]")
 
-  val listOrArrayOrSet: Parser[tree.FieldType] = P(((LIST.!.map(_ => tree.ListType.tupled)) | (ARRAY.!.map(_ => tree.ArrayType.tupled)) | (SET.!.map(_ => tree.SetType.tupled))) ~/ dimensions.? ~/ OF ~/ UNIQUE.!.? ~/ fieldType).map({
+  val listOrArrayOrSet: Parser[tree.DataType] = P(((LIST.!.map(_ => tree.ListType.tupled)) | (ARRAY.!.map(_ => tree.ArrayType.tupled)) | (SET.!.map(_ => tree.SetType.tupled))) ~/ dimensions.? ~/ OF ~/ UNIQUE.!.? ~/ DataType).map({
     case (colTpe, dims, unique, tpe) => colTpe.apply(tpe, dims, unique.isDefined)
   })
 
@@ -47,5 +47,5 @@ trait FieldType extends Expr {
       BOOLEAN.!.map(_ => tree.BooleanType) |
       NUMBER.!.map(_ => tree.NumberType))
 
-  val fieldType: Parser[tree.FieldType] = P(listOrArrayOrSet | enumeration | select | generic | primitiveTypes | userDefinedType)
+  val DataType: Parser[tree.DataType] = P(listOrArrayOrSet | enumeration | select | generic | primitiveTypes | userDefinedType)
 }

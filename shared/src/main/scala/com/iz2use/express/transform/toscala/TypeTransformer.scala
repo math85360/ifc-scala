@@ -104,7 +104,7 @@ $addedBody
 
 object UnderylingPrimitive {
   @inline
-  def unapply(x: tree.FieldType)(implicit context: Context): Option[tree.NumericBasedType] = {
+  def unapply(x: tree.DataType)(implicit context: Context): Option[tree.NumericBasedType] = {
     x.collectFirst({
       case Extends(tpe) => tpe
     }) {
@@ -115,7 +115,7 @@ object UnderylingPrimitive {
 
 object Supertype {
   @inline
-  def unapply(x: tree.FieldType)(implicit context: Context): Option[tree.Type] = x match {
+  def unapply(x: tree.DataType)(implicit context: Context): Option[tree.Type] = x match {
     case tree.UserDefinedType(_name) => context.schema.definedTypes.collectFirst({
       case tpe @ tree.Type(name, tree.SelectType(subtypes), _) if subtypes.contains(tree.UserDefinedType(_name)) => tpe
     })
@@ -125,7 +125,7 @@ object Supertype {
 
 object Extends {
   @inline
-  def unapply(x: tree.FieldType)(implicit context: Context): Option[tree.FieldType] = x match {
+  def unapply(x: tree.DataType)(implicit context: Context): Option[tree.DataType] = x match {
     case tpe: tree.UserDefinedType => tpe.getType.map(_.tpe)
     case _ => None
   }

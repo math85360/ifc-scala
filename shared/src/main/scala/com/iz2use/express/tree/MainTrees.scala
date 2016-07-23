@@ -1,30 +1,30 @@
 package com.iz2use.express.tree
 
-case class Field(name: String, tpe: FieldType) extends Named with Typed
+case class Field(name: String, tpe: DataType) extends Named with Typed
 
-abstract sealed class FieldType
+abstract sealed class DataType
 
-abstract sealed class PrimitiveType extends FieldType
+abstract sealed class PrimitiveType extends DataType
 
 abstract sealed trait NumericBasedType extends PrimitiveType
 
-case class OptionalField(tpe: FieldType) extends FieldType
+case class OptionalField(tpe: DataType) extends DataType
 
-//case class GenericType(tpe: FieldType, genericTypes: FieldType) extends FieldType
+//case class GenericType(tpe: DataType, genericTypes: DataType) extends DataType
 
-case class ArrayType(tpe: FieldType, dimensions: Option[Seq[Tree]], unique: Boolean) extends FieldType
+case class ArrayType(tpe: DataType, dimensions: Option[Seq[Tree]], unique: Boolean) extends DataType
 
-case class SetType(tpe: FieldType, dimensions: Option[Seq[Tree]], unique: Boolean) extends FieldType
+case class SetType(tpe: DataType, dimensions: Option[Seq[Tree]], unique: Boolean) extends DataType
 
-case class ListType(tpe: FieldType, dimensions: Option[Seq[Tree]], unique: Boolean) extends FieldType
+case class ListType(tpe: DataType, dimensions: Option[Seq[Tree]], unique: Boolean) extends DataType
 
-case class EnumerationType( /*tpe: FieldType*/ list: Seq[String]) extends FieldType
+case class EnumerationType( /*tpe: DataType*/ list: Seq[String]) extends DataType
 
-case class SelectType( /*tpe: FieldType*/ list: Seq[UserDefinedType]) extends FieldType
+case class SelectType( /*tpe: DataType*/ list: Seq[UserDefinedType]) extends DataType
 
-case class UserDefinedType(name: String) extends FieldType
+case class UserDefinedType(name: String) extends DataType
 
-case class GenericType(tpe: FieldType) extends FieldType
+case class GenericType(tpe: DataType) extends DataType
 
 case class StringType(length: Option[Int], fixed: Boolean) extends PrimitiveType
 
@@ -41,16 +41,16 @@ case object IntegerType extends PrimitiveType with NumericBasedType
 case object BooleanType extends PrimitiveType
 
 case object NumberType extends PrimitiveType with NumericBasedType
-/*case object ArrayType extends FieldType
-case object SetType extends FieldType
-case object ListType extends FieldType
-case object EnumerationType extends FieldType
-case object SelectType extends FieldType
-case object GenericType extends FieldType*/
+/*case object ArrayType extends DataType
+case object SetType extends DataType
+case object ListType extends DataType
+case object EnumerationType extends DataType
+case object SelectType extends DataType
+case object GenericType extends DataType*/
 
-case class Derive(name: Tree, tpe: FieldType, expr: Tree) extends Typed
+case class Derive(name: Tree, tpe: DataType, expr: Tree) extends Typed
 
-case class Inverse(name: String, tpe: FieldType, source: Ident) extends Named with Typed
+case class Inverse(name: String, tpe: DataType, source: Ident) extends Named with Typed
 
 case class Unique(name: String, sources: Seq[Ident]) extends Named
 
@@ -58,19 +58,19 @@ case class Where(name: String, expr: Tree) extends Named
 
 case class Entity(name: String, isAbstract: Boolean, inheritsFrom: Seq[String], fields: Seq[Field], derives: Seq[Derive], inverses: Seq[Inverse], uniques: Seq[Unique], wheres: Seq[Where]) extends DefinedType
 
-case class Type(name: String, tpe: FieldType, wheres: Seq[Where]) extends DefinedType with Typed
+case class Type(name: String, tpe: DataType, wheres: Seq[Where]) extends DefinedType with Typed
 
 case class Comment(body: String)
 
 case class Schema(name: String, definedTypes: Seq[DefinedType]) extends MainType with Named
 
-case class Argument(name: String, tpe: FieldType) extends Named with Typed
+case class Argument(name: String, tpe: DataType) extends Named with Typed
 
-case class Local(name: String, tpe: FieldType, expr: Option[Tree]) extends Named with Typed
+case class Local(name: String, tpe: DataType, expr: Option[Tree]) extends Named with Typed
 
-case class Function(name: String, args: Seq[Argument], tpe: FieldType, locals: Seq[Local], body: Tree) extends DefinedType with Typed
+case class Function(name: String, args: Seq[Argument], tpe: DataType, locals: Seq[Local], body: Tree) extends DefinedType with Typed
 
-case class Rule(name: String, types: Seq[FieldType], locals: Seq[Local], body: Tree, wheres: Seq[Where]) extends DefinedType
+case class Rule(name: String, types: Seq[DataType], locals: Seq[Local], body: Tree, wheres: Seq[Where]) extends DefinedType
 
 sealed trait MainType extends Named
 
@@ -81,5 +81,5 @@ sealed trait Named {
 }
 
 sealed trait Typed {
-  val tpe: FieldType
+  val tpe: DataType
 }

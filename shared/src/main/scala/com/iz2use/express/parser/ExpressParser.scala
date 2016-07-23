@@ -2,25 +2,25 @@ package com.iz2use.express.parser
 
 import com.iz2use.express.tree
 
-object ExpressParser extends Symbols with FieldType with Base with Expr {
+object ExpressParser extends Symbols with DataType with Base with Expr {
   import fastparse.noApi._
   import White._
 
   //val space = P(" " | "\t" | "\r\n" | "\r" | "\n")
 
-  val field: Parser[tree.Field] = P(name.! ~ ":" ~/ OPTIONAL.!.? ~/ fieldType ~/ EOS).map({
+  val field: Parser[tree.Field] = P(name.! ~ ":" ~/ OPTIONAL.!.? ~/ DataType ~/ EOS).map({
     case (name, opt, tpe) => tree.Field(name, opt.foldLeft(tpe)((acc, cur) => tree.OptionalField(acc)))
   })
 
   val fields = P(field.rep(0))
 
-  val deriveField = P((SELF.! ~ "\\").? ~ name.!.map(tree.Ident).rep(1, ".") ~ ":" ~/ fieldType ~/ ":=" ~/ condition ~/ EOS).map({
+  val deriveField = P((SELF.! ~ "\\").? ~ name.!.map(tree.Ident).rep(1, ".") ~ ":" ~/ DataType ~/ ":=" ~/ condition ~/ EOS).map({
     case (selfOpt, names, tpe, expr) => tree.Derive(selfOpt.fold[Seq[tree.Tree]](names)(_ => tree.Super(tree.Self, names.head) +: names.tail).reduce((a, b) => tree.Select(a, b)), tpe, expr)
   })
 
   val derives = P(DERIVE ~/ deriveField.rep(1))
 
-  val inverseField = P(name.! ~ ":" ~/ fieldType ~/ FOR ~/ name.! ~/ EOS).map({
+  val inverseField = P(name.! ~ ":" ~/ DataType ~/ FOR ~/ name.! ~/ EOS).map({
     case (name, tpe, source) => tree.Inverse(name, tpe, tree.Ident(source))
   })
 
@@ -48,27 +48,27 @@ object ExpressParser extends Symbols with FieldType with Base with Expr {
     case (name, abstracts, superstypes, subtypes, fields, derives, inverses, uniques, wheres) => tree.Entity(name, abstracts.isDefined, subtypes.getOrElse(Seq.empty), fields, derives.getOrElse(Seq.empty), inverses.getOrElse(Seq.empty), uniques.getOrElse(Seq.empty), wheres.getOrElse(Seq.empty))
   })
 
-  val typeDef = P(TYPE ~/ name.! ~/ "=" ~/ fieldType ~/ EOS ~/ wheres.? ~/ END_TYPE ~/ EOS).map({
+  val typeDef = P(TYPE ~/ name.! ~/ "=" ~/ DataType ~/ EOS ~/ wheres.? ~/ END_TYPE ~/ EOS).map({
     case (name, tpe, wheres) => tree.Type(name, tpe, wheres.getOrElse(Seq.empty))
   })
 
-  val localDef = P(name.!.rep(1, ",") ~ ":" ~/ fieldType ~/ (":=" ~/ condition).? ~/ EOS).map({
+  val localDef = P(name.!.rep(1, ",") ~ ":" ~/ DataType ~/ (":=" ~/ condition).? ~/ EOS).map({
     case (names, tpe, expr) => names.map(tree.Local(_, tpe, expr))
   })
 
   val localDefs = P(LOCAL ~/ localDef.rep(1) ~/ END_LOCAL ~/ EOS).map(_.flatten)
 
-  val argDef = P(name.!.rep(1, ",") ~ ":" ~/ fieldType).map({
+  val argDef = P(name.!.rep(1, ",") ~ ":" ~/ DataType).map({
     case (lst, tpe) => lst.map(tree.Argument(_, tpe))
   })
 
   val argDefs = P(group(argDef.rep(1, EOS))).map(_.flatten)
 
-  val functionDef = P(FUNCTION ~/ name.! ~/ argDefs ~ ":" ~/ fieldType ~ EOS ~/ localDefs.? ~/ functionBlock ~/ END_FUNCTION ~/ EOS).map({
+  val functionDef = P(FUNCTION ~/ name.! ~/ argDefs ~ ":" ~/ DataType ~ EOS ~/ localDefs.? ~/ functionBlock ~/ END_FUNCTION ~/ EOS).map({
     case (name, argList, tpe, locals, body) => tree.Function(name, argList, tpe, locals.getOrElse(Seq.empty), body)
   })
 
-  val ruleDef = P(RULE ~/ name.! ~/ FOR ~/ group(fieldType.rep(1, COMA)) ~/ EOS ~/ localDefs.? ~ functionBlock.? ~ wheres.? ~ /*(!END_RULE ~ AnyChar).rep(0)
+  val ruleDef = P(RULE ~/ name.! ~/ FOR ~/ group(DataType.rep(1, COMA)) ~/ EOS ~/ localDefs.? ~ functionBlock.? ~ wheres.? ~ /*(!END_RULE ~ AnyChar).rep(0)
   ~ */ END_RULE ~/ EOS).map({
     case (name, types, locals, body, wheres) => tree.Rule(name, types, locals.getOrElse(Seq.empty), body.getOrElse(tree.EmptyTree), wheres.getOrElse(Seq.empty))
   })

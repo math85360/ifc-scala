@@ -8,14 +8,14 @@ import scala.annotation.tailrec
 import Implicits._
 
 object TraverserDefault {
-  val traverseSeqLike: PartialFunction[tree.FieldType, tree.FieldType] = {
+  val traverseSeqLike: PartialFunction[tree.DataType, tree.DataType] = {
     case tree.OptionalField(tpe) => tpe
     case tree.ListType(tpe, _, _) => tpe
     case tree.SetType(tpe, _, _) => tpe
     case tree.ArrayType(tpe, _, _) => tpe
   }
   // TODO activate when Type has UserDefinedType
-  /*def userDefinedType(implicit context:Context): PartialFunction[tree.FieldType, tree.FieldType] = {
+  /*def userDefinedType(implicit context:Context): PartialFunction[tree.DataType, tree.DataType] = {
     case tree.UserDefinedType(_name) =>
       context.schema.definedTypes.collectFirst({
         case tree.Type(name, tpe, _) if name == _name => tpe
@@ -23,9 +23,9 @@ object TraverserDefault {
   }*/
 }
 
-case class FieldTypeTransformer(val self: tree.FieldType) extends AnyVal {
+case class DataTypeTransformer(val self: tree.DataType) extends AnyVal {
 
-  /*val defaultValueForType: PartialFunction[(tree.FieldType, Context), String] = {
+  /*val defaultValueForType: PartialFunction[(tree.DataType, Context), String] = {
     case (tree.OptionalField(tpe), ctx) => tpe match {
       case a if defaultValueForType.isDefinedAt((a, ctx)) => defaultValueForType((a, ctx))
       case _ => "null"
@@ -50,25 +50,25 @@ case class FieldTypeTransformer(val self: tree.FieldType) extends AnyVal {
     case _ => notFound
   }
 
-  def traverse(implicit visitor: PartialFunction[tree.FieldType, tree.FieldType]): Stream[tree.FieldType] =
+  def traverse(implicit visitor: PartialFunction[tree.DataType, tree.DataType]): Stream[tree.DataType] =
     Stream.cons(self, visitor.lift(self).map(_.traverse).getOrElse(Stream.empty))
 
-  def collectFirst[A](visitor: PartialFunction[tree.FieldType, tree.FieldType])(pf: PartialFunction[tree.FieldType, A]): Option[A] = traverse(visitor).collectFirst(pf)
+  def collectFirst[A](visitor: PartialFunction[tree.DataType, tree.DataType])(pf: PartialFunction[tree.DataType, A]): Option[A] = traverse(visitor).collectFirst(pf)
 
   /*@tailrec
-  def traverseAndCollect[A](collector: PartialFunction[tree.FieldType, A])(implicit visitor: PartialFunction[tree.FieldType, tree.FieldType]) :Option[A]= traverse(visitor) match {
+  def traverseAndCollect[A](collector: PartialFunction[tree.DataType, A])(implicit visitor: PartialFunction[tree.DataType, tree.DataType]) :Option[A]= traverse(visitor) match {
     case Stream.empty => None
     case head #:: tail => if(collector.isDefinedAt(head)) Some(collector(head)) else tail
   }*/
   //traverse().collectFirst(pf)
 
-  //def traverseType[A](implicit toKeep: PartialFunction[tree.FieldType, A], context: Context): Option[A] = traverseTypeFor(self)
+  //def traverseType[A](implicit toKeep: PartialFunction[tree.DataType, A], context: Context): Option[A] = traverseTypeFor(self)
 
   // TraversableAgain ?
   // Stream ?
 
   /*@tailrec
-  private def traverseTypeFor[A](_tpe: tree.FieldType)(implicit toKeep: PartialFunction[tree.FieldType, A], context: Context): Option[A] = {
+  private def traverseTypeFor[A](_tpe: tree.DataType)(implicit toKeep: PartialFunction[tree.DataType, A], context: Context): Option[A] = {
     _tpe match {
       case tpe if toKeep.isDefinedAt(tpe) => Some(toKeep(tpe))
       case tree.OptionalField(tpe) => traverseTypeFor(tpe)
