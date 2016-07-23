@@ -36,4 +36,4 @@ lazy val modules = project.in(file(".")).aggregate(
 	ifcscalaJS,
 	ifcscalaJVM)
 
-scalacOptions in ThisBuild += "-feature"
+scalacOptions in ThisBuild ++= Seq("-feature","-language:implicitConversions")

@@ -1,6 +1,6 @@
 package com.iz2use.express.tree
 
-case class Field(name: String, tpe: FieldType) extends Named
+case class Field(name: String, tpe: FieldType) extends Named with Typed
 
 abstract sealed class FieldType
 

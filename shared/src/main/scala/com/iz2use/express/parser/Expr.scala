@@ -104,8 +104,8 @@ trait Expr extends Base {
 
   val factor: Tree = P(parens | between | evaluable)
 
-  val repeat: Tree = P(REPEAT ~/ name.! ~/ COLON_EQ ~/ evaluable ~/ TO ~/ evaluable ~/ EOS ~/ functionBlock ~/ END_REPEAT ~/ EOS).map({
-    case (v, start, end, body) => tree.Repeat(tree.Raw(v), start, end, body)
+  val repeat: Tree = P(REPEAT ~/ ident ~/ COLON_EQ ~/ evaluable ~/ TO ~/ evaluable ~/ EOS ~/ functionBlock ~/ END_REPEAT ~/ EOS).map({
+    case (name, start, end, body) => tree.Repeat(name, start, end, body)
   })
 
   val assign: Tree = P(apply ~ COLON_EQ ~/ condition ~ EOS).map({
@@ -165,7 +165,10 @@ trait Expr extends Base {
 
   //val isolatedOperation = P( unaryLogicalOperation))
 
-  val condition: Tree = P(binaryLogicalOperation)
+  val condition: Tree = P(binaryLogicalOperation).map({
+    case tree.Group(m) => m
+    case e => e
+  })
 
   val ifBlock: Tree = P(IF ~/ condition ~/ THEN ~/ functionBlock ~/ (ELSE ~/ functionBlock).? ~ END_IF ~ EOS).map({
     case (cond, thenp, elsep) => tree.If(cond, thenp, elsep.getOrElse(emptyBlock))

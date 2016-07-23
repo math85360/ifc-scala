@@ -64,7 +64,7 @@ object ExpressParser extends Symbols with FieldType with Base with Expr {
 
   val argDefs = P(group(argDef.rep(1, EOS))).map(_.flatten)
 
-  val functionDef = P(FUNCTION ~/ name.!.map({ x => println(x); x }) ~/ argDefs ~ ":" ~/ fieldType ~ EOS ~/ localDefs.? ~/ functionBlock ~/ END_FUNCTION ~/ EOS).map({
+  val functionDef = P(FUNCTION ~/ name.! ~/ argDefs ~ ":" ~/ fieldType ~ EOS ~/ localDefs.? ~/ functionBlock ~/ END_FUNCTION ~/ EOS).map({
     case (name, argList, tpe, locals, body) => tree.Function(name, argList, tpe, locals.getOrElse(Seq.empty), body)
   })
 

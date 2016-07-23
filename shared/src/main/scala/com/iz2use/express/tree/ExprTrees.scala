@@ -34,7 +34,7 @@ case class CaseDef(pat: Tree, body: Tree) extends Tree
 
 case class Match(selector: Tree, cases: Seq[Tree]) extends Tree
 
-case class Repeat(name: Tree, start: Tree, end: Tree, body: Tree) extends Tree
+case class Repeat(name: Ident, start: Tree, end: Tree, body: Tree) extends Tree
 
 case class Ident(name: String) extends Tree
 

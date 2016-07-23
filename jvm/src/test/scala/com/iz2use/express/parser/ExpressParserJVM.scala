@@ -15,8 +15,6 @@ object ExpressParserTestsJVM extends TestSuite {
         fileContent match {
           case Success(data) =>
             val Parsed.Success(value, successIndex) = fileParser.parse(data)
-          case e =>
-            println(e)
         }
       }
     }
