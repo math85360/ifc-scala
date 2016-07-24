@@ -41,11 +41,11 @@ object TreeTransformer {
 
   def transformField(inBody: Boolean)(field: tree.Field)(implicit context: Context) = {
     val suffix = (if (inBody) { " = _" } else { field.tpe.defaultValue(" = " + _, "") })
-    s"""var ${field.name} : ${field.tpe.scalaCode}$suffix"""
+    s"""${field.name} : Value[${field.tpe.scalaCode}]$suffix"""
   }
 
   def transformInverse(field: tree.Inverse)(implicit context: Context) = {
-    s"""def ${field.name} : ${field.tpe.scalaCode} = null // inverse from ${field.source}"""
+    s"""def ${field.name} : ${field.tpe.scalaCode} = Null // inverse from ${field.source}"""
   }
 
   def transformUnique(field: tree.Unique)(implicit context: Context) = {
@@ -75,7 +75,7 @@ object TreeTransformer {
         case str: String => "\"" + str + "\""
         case e => e.toString()
       }
-      case tree.DefaultFunctionCall(tree.EXISTS, args) => s"(${transformArgs(args)} != null)" // s"${transformArgs(args)}.isDefined"
+      case tree.DefaultFunctionCall(tree.EXISTS, args) => s"${transformArgs(args)}.?" // s"(${transformArgs(args)} != null)"
       case tree.Super(tree.Self, tree.Ident(name)) => s"this" // case tree.Super(tree.Self, tree.Ident(name)) => s"super[$name]"
       case tree.Super(root, tree.Ident(name)) => s"${apply(root)}" //case tree.Super(root, tree.Ident(name)) => s"${apply(root)}.super[$name]"
       case tree.BooleanOperation(tree.Literal(tree.Constant(lhs: String)), tree.In, tree.DefaultFunctionCall(tree.TYPEOF, rhs)) =>
@@ -90,7 +90,7 @@ object TreeTransformer {
       case tree.DefaultFunctionCall(tree.TYPEOF, args) => s"${transformArgs(args)}.getClass"
       case tree.DefaultFunctionCall(tree.ABS, args) => s"${apply(args.head)}.abs"
       case tree.DefaultFunctionCall(tree.SQRT, args) => s"Math.sqrt(${apply(args.head)})"
-      //case tree.DefaultFunctionCall(tree.NVL, args) => args.map(arg => s"Option(${apply(arg)})").reduce((a, b) => s"$a.orElse($b).get")
+      case tree.DefaultFunctionCall(tree.NVL, args) => args.map(arg => s"${apply(arg)}").reduce((a, b) => s"$a.getOrElse($b)")
       case tree.DefaultFunctionCall(tree.HIINDEX, args) => s"(${apply(args.head)}.size - 1)"
       case tree.Between(lv, il, v, ih, hv) =>
         val c = apply(v)
@@ -108,13 +108,13 @@ ${apply(thenp)}
 ${apply(elsep)}
 }"""
       case tree.Block(items) => items.map(apply).mkString(context.NL)
-      case tree.ValDef(lhs, _, _, _, rhs) => s"""${apply(lhs)} = ${apply(rhs)}"""
+      case tree.ValDef(lhs, _, _, _, rhs) => s"""${apply(lhs)} := ${apply(rhs)}"""
       case tree.Return(tree.EmptyTree) => /*"return " + context.collect({
         case tree.Function(_, _, tree.BooleanType, _, _) => ""
       }).getOrElse(apply(expr))*/
-        "return null"
-      case tree.Return(expr) => s"""return ${apply(expr)}"""
-      case tree.EmptyTree => "null"
+        "return new Value()"
+      case tree.Return(expr) => s"""return new Value(${apply(expr)})"""
+      case tree.EmptyTree => "Null"
       case tree.DefaultFunctionCall(op, args) => "null /* $op : " + args.map(apply).mkString(" || ") + "*/"
       case tree.Repeat(tree.Ident(name), start, end, body) => s"for {$name <- ${TreeTransformer(start)} to ${TreeTransformer(end)} } {" + TreeTransformer(body)(context.withLocals(name -> name)) + "}"
       case expr => s"/*${expr.toString()}*/"

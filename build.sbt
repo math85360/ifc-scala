@@ -1,6 +1,6 @@
-name := """ifc-scala"""
+name in ThisBuild := """ifc-scala"""
 
-version := "0.1"
+version in ThisBuild := "0.2-SNAPSHOT"
 
 scalaVersion in ThisBuild := "2.11.7"
 
@@ -32,8 +32,10 @@ lazy val ifcscalaJS = ifcscala.js
 
 lazy val ifcscalaJVM = ifcscala.jvm
 	
-lazy val modules = project.in(file(".")).aggregate(
-	ifcscalaJS,
-	ifcscalaJVM)
+lazy val root = project.in(file(".")).aggregate(ifcscalaJS, ifcscalaJVM).
+	settings(
+		publish := {},
+		publishLocal := {}
+	)
 
 scalacOptions in ThisBuild ++= Seq("-feature","-language:implicitConversions")

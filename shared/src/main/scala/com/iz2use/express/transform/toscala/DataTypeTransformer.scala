@@ -89,10 +89,10 @@ case class DataTypeTransformer(val self: tree.DataType) extends AnyVal {
   }*/
 
   def scalaCode(implicit context: Context): String = self match {
-    case tree.OptionalField(tpe) => s"Option[${tpe.scalaCode}]" // apply(tpe)
-    case tree.ArrayType(tpe, dims, unique) => s"collection.mutable.ArrayBuffer[${tpe.scalaCode}]"
-    case tree.SetType(tpe, dims, unique) => s"collection.mutable.Set[${tpe.scalaCode}]"
-    case tree.ListType(tpe, dims, unique) => s"collection.mutable.ListBuffer[${tpe.scalaCode}]"
+    case tree.OptionalField(tpe) => tpe.scalaCode //s"Option[${tpe.scalaCode}]" // 
+    case tree.ArrayType(tpe, dims, unique) => s"Array[${tpe.scalaCode}]"
+    case tree.SetType(tpe, dims, unique) => s"Set[${tpe.scalaCode}]"
+    case tree.ListType(tpe, dims, unique) => s"List[${tpe.scalaCode}]"
     case tree.EnumerationType(list) => list.mkString("String /* Enumeration(", ", ", ") */")
     case tree.SelectType(list) => list.mkString("String /* Select(", ", ", ") */")
     case tree.StringType(length, fixed) => s"String /* $length, $fixed */"
@@ -100,8 +100,7 @@ case class DataTypeTransformer(val self: tree.DataType) extends AnyVal {
     case tree.LogicalType | tree.BooleanType => s"Boolean"
     case tree.LongType => s"Long"
     case tree.IntegerType => s"Int"
-    case tree.RealType => s"Double"
-    case tree.NumberType => s"Double"
+    case tree.RealType | tree.NumberType => s"Double"
     case tree.UserDefinedType(name) =>
       /*val r = context.schema.definedTypes.collectFirst({
         case tree.Type(_name, tree.SelectType(lst), _) if _name.equalsIgnoreCase(name) => "A"
@@ -109,6 +108,17 @@ case class DataTypeTransformer(val self: tree.DataType) extends AnyVal {
       r.getOrElse(name)*/
       name
     case tree.GenericType(tpe) => tpe.scalaCode
+  }
+
+  def nativeScalaCode(implicit context: Context): String = self match {
+    case tree.StringType(length, fixed) => s"String"
+    case tree.BinaryType(length, fixed) => s"String"
+    case tree.LogicalType | tree.BooleanType => s"Boolean"
+    case tree.LongType => s"Long"
+    case tree.IntegerType => s"Int"
+    case tree.RealType | tree.NumberType => s"Double"
+    case Extends(tpe) => tpe.nativeScalaCode
+    case _ => scalaCode
   }
 
   /*def scalaType[A](implicit context: Context): Class[_] = self match {

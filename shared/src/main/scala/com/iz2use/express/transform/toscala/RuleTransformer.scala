@@ -24,6 +24,8 @@ case class RuleTransformer(val entity: tree.Rule) extends AnyVal {
     }).mkString(context.NL)
     s"""package express.${context.schema.name.toLowerCase}
 
+import com.iz2use.express.datatype._
+
 object ${entity.name} {
 def apply() = {
 $locals

@@ -9,20 +9,22 @@ import Implicits._
 
 case class FunctionTransformer(val entity: tree.Function) extends AnyVal {
   def scalaCode(implicit context: Context) = {
-    val args = entity.args.map(TreeTransformer.transformArgument).mkString("," + context.NL)
+    val args = entity.args.map(arg => s"""${arg.name} : Value[${arg.tpe.scalaCode}]""").mkString("," + context.NL)
     val genericList = (entity.args.map(_.tpe) :+ entity.tpe).flatMap(
       _.collectFirst(TraverserDefault.traverseSeqLike) {
         case tree.GenericType(tree.UserDefinedType(tpe)) => tpe
       }).distinct
     val generics = (if (genericList.isEmpty) "" else genericList.mkString("[", ", ", "]"))
     val locals = entity.locals.map({ local =>
-      val expr = local.expr.map(TreeTransformer(_)).fold(" = " + local.tpe.defaultValue)(" = " + _)
-      s"""var ${local.name} : ${local.tpe.scalaCode}$expr"""
+      val expr = " = new Value(" + local.expr.map(TreeTransformer(_)).getOrElse(local.tpe.defaultValue)+")"
+      s"""var ${local.name} : Value[${local.tpe.scalaCode}]$expr"""
     }).mkString(context.NL)
     s"""package express.${context.schema.name.toLowerCase}
 
+import com.iz2use.express.datatype._
+
 object ${entity.name} {
-def apply$generics($args) : ${entity.tpe.scalaCode} = {
+def apply$generics($args) : Value[${entity.tpe.scalaCode}] = {
 $locals
 ${TreeTransformer(entity.body)}
 }

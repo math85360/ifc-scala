@@ -12,6 +12,8 @@ case class TypeTransformer(val entity: tree.Type) extends AnyVal {
   def scalaCode(implicit context: Context): String = {
     val wheres = entity.wheres.map(TreeTransformer.transformWhere).mkString(context.NL)
     s"""package express.${context.schema.name.toLowerCase}
+
+import com.iz2use.express.datatype._
 """ +
       (entity.tpe match {
         case enum: tree.EnumerationType =>
@@ -67,7 +69,7 @@ trait ${entity.name} {
           val addedBody = entity.tpe match {
             case UnderylingPrimitive(x) =>
               val default = x.defaultValue
-              s"""
+              /*s"""
 object ${entity.name} {
 
 trait ${entity.name}Integral extends Integral[${x.scalaCode}] {
@@ -75,22 +77,29 @@ trait ${entity.name}Integral extends Integral[${x.scalaCode}] {
 
 implicit object ${entity.name}Integral extends ${entity.name}Integral
 
-implicit def valueToExpress(underlying: ${x.scalaCode}): ${entity.name} = new ${entity.name}(underlying)
+implicit def valueToExpress(underlying: ${x.nativeScalaCode}): ${entity.name} = new ${entity.name}(underlying)
 
-implicit def valueToOptionExpress(underlying: ${x.scalaCode}): Option[${entity.name}] = Some(valueToExpress(underlying))
+implicit def valueToOptionExpress(underlying: ${x.scalaCode}): ${entity.name} = valueToExpress(underlying)
 
-implicit def expressToValue(underlying: ${entity.name}): ${x.scalaCode} = underlying.SELF
+implicit def expressToValue(underlying: ${entity.name}): ${x.nativeScalaCode} = underlying.SELF
 
-implicit def expressOptToValue(underlying: Option[${entity.name}]): ${x.scalaCode} = underlying.map(_.SELF).getOrElse(${x.defaultValue})
+implicit def expressOptToValue(underlying: ${entity.name}): ${x.scalaCode} = underlying.getOrElse(${x.defaultValue})
 }
-"""
+"""*/
+              /*s"""
+object ${entity.name} extends ExpressObject[${entity.tpe.nativeScalaCode}, ${entity.name}] {
+override def apply(native: Option[${entity.tpe.nativeScalaCode}]): ${entity.name} = if(native == null) Null else new ${entity.name}(native)
+}
+"""*/
             case _ => ""
           }
           val extended = entity.tpe match {
+            //case e => s"(value: Option[${entity.tpe.nativeScalaCode}]) extends ${entity.tpe.scalaCode}(value)"
             //case UnderylingPrimitive(x) => s"(val SELF: ${entity.tpe.scalaCode}) extends AnyVal"
             case UnderylingPrimitive(x) if x != entity.tpe => s"(val SELF: ${x.scalaCode}) extends ${entity.tpe.scalaCode}(SELF)"
             case _ => s"(val SELF: ${entity.tpe.scalaCode})"
           }
+          
           s"""
 class ${entity.name}$extended {
 $wheres

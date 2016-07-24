@@ -43,6 +43,8 @@ case class EntityTransformer(val entity:tree.Entity) extends AnyVal {
     val uniques = entity.derives.map(TreeTransformer.transformDerive).mkString(context.NL)
     val wheres = entity.wheres.map(TreeTransformer.transformWhere).mkString(context.NL)
     s"""package express.${context.schema.name.toLowerCase}
+
+import com.iz2use.express.datatype._
 """ + (
       if (false && entity.isAbstract) {
         val fields = entity.fields.map(TreeTransformer.transformField(true)).mkString("(" + context.NL, context.NL + ", ", context.NL + ")")
